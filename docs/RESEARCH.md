@@ -568,3 +568,109 @@ MHCT also provides:
 | MouseHunt Wiki | [mhwiki.hitgrab.com](https://mhwiki.hitgrab.com/wiki/index.php/MouseHunt) |
 | Community API Docs | [api-docs.mouse.rip](https://api-docs.mouse.rip/) |
 | Greasy Fork Scripts | [greasyfork.org (mousehuntgame.com)](https://greasyfork.org/en/scripts/by-site/mousehuntgame.com) |
+
+---
+
+## 7. Convertible / Treasure Chest Drop Rates
+
+### What Are Convertibles?
+
+Convertibles are interactive items in MouseHunt's Special Inventory tab. When opened ("Use" or "Use All"), they convert into other items. There are **244+ types** including:
+
+- **Treasure Chests** (rewarded from Treasure Maps)
+- **Gift boxes** (event rewards)
+- **Event items** (Birthday, Halloween, seasonal)
+- **Miscellaneous** (Cursed Skull, Pepper Plant, Mysterious Box, etc.)
+
+Most convertibles randomly produce a single item from a pool (often in variable quantities), though some like Dragon's Chest yield multiple items at once.
+
+### Data Sources
+
+**MHCT is the only comprehensive source for convertible drop rate data.** No other database, wiki, or spreadsheet provides structured drop percentages.
+
+| Source | Has Drop Rates? |
+|---|---|
+| **MHCT (mhct.win)** | Yes — full crowdsourced drop tables with percentages |
+| **api.mouse.rip** | No — only has `is_convertible` flag on items |
+| **MH Wiki** | No — lists contents qualitatively, no percentages |
+| **tsitu/MH-Tools** | No convertible tools |
+| **Community spreadsheets** | None for convertible drops |
+
+### MHCT Convertible Tools (Web UI)
+
+| Tool | URL | Description |
+|---|---|---|
+| Converter | `https://www.mhct.win/converter.php` | Search by chest/convertible name to see drop table |
+| Reverse Converter | `https://www.mhct.win/reverse-converter.php` | Search by item to find which convertibles drop it |
+
+### MHCT Convertible API
+
+#### List All Convertibles
+
+```
+GET https://www.mhct.win/searchByItem.php?item_id=all&item_type=convertible
+```
+
+Returns:
+```json
+[
+  { "id": 123, "value": "Rare Treasure Chest" },
+  { "id": 456, "value": "Arduous Treasure Chest" }
+]
+```
+
+#### Get Drop Data for a Specific Convertible
+
+```
+GET https://www.mhct.win/searchByItem.php?item_id={ID}&item_type=convertible
+```
+
+Returns an array of drop entries with these fields:
+
+| Field | Description |
+|---|---|
+| `item` | Name of the dropped item |
+| `total` | Total number of this convertible opened (sample size) |
+| `single_opens` | Number opened individually (not "Use All") |
+| `total_items` | Aggregate quantity of this item received across all opens |
+| `times_with_any` | Number of opens that contained this item |
+| `min_item_quantity` | Minimum quantity received in a single open |
+| `max_item_quantity` | Maximum quantity received in a single open |
+| `item_gold_value` | Market gold value of the item |
+| `item_sb_value` | Market SUPER\|brie+ value of the item |
+
+#### Reverse Lookup (Which Convertibles Drop an Item)
+
+```
+GET https://www.mhct.win/searchByItem.php?item_id={ITEM_ID}&item_type=itemconvertibles
+```
+
+#### Calculated Metrics
+
+From the raw data, you can derive:
+
+| Metric | Formula |
+|---|---|
+| Items per open (average) | `total_items / total` |
+| Chance of receiving item | `times_with_any / single_opens` |
+| Average quantity when present | `total_items / times_with_any` |
+
+### How Data Is Collected
+
+The MHCT browser extension intercepts AJAX calls to `managers/ajax/users/useconvertible.php` when a player opens a convertible. It captures:
+- Convertible ID, name, and quantity opened
+- Each item received: ID, name, and quantity
+
+Data is submitted to `https://www.mhct.win/convertible_intake.php`.
+
+### Database Schema (`mhconverter` database)
+
+| Table | Description |
+|---|---|
+| `entries` | Each submission record (user_id, asset_hash, extension_version) |
+| `convertibles` | Catalog of convertible types (id, name) |
+| `items` | Catalog of items (id, name) |
+| `convertible_item` | Junction table (entry_id, convertible_id, convertible_quantity, item_id, item_quantity) |
+| `aggr_convertible_item` | Aggregated stats (convertible_id, item_id, total opened, single opens, total quantity, min/max quantity, times_with_any) |
+
+Raw SQL dumps are available from MHCT's backup directory for offline analysis.
