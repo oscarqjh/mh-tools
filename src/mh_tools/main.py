@@ -45,6 +45,9 @@ def build_parser() -> argparse.ArgumentParser:
     # sync-prices
     subparsers.add_parser("sync-prices", help="Fetch all MarketHunt prices into local cache")
 
+    # tui
+    subparsers.add_parser("tui", help="Launch interactive terminal UI")
+
     return parser
 
 
@@ -110,6 +113,13 @@ def run_sync_prices(args) -> None:
     print(f"Synced {len(prices)} item prices.")
 
 
+def run_tui(args) -> None:
+    """Launch the Textual TUI."""
+    from mh_tools.ui.app import MHToolsApp
+    app = MHToolsApp(db_path=args.db_path)
+    app.run()
+
+
 def _print_result(result: AnalysisResult, show_after_tax: bool = False) -> None:
     """Pretty-print an analysis result to stdout."""
     print(f"\n{'=' * 60}")
@@ -163,6 +173,7 @@ def main() -> None:
         "clear-cache": run_clear_cache,
         "add-mapping": run_add_mapping,
         "sync-prices": run_sync_prices,
+        "tui": run_tui,
     }
     commands[args.command](args)
 
