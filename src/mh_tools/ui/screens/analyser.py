@@ -20,16 +20,22 @@ class AnalyserScreen(Screen):
     """Interactive Map Value Analyser screen."""
 
     BINDINGS = [
-        ("q", "quit", "Quit"),
+        ("ctrl+c", "quit", "Quit"),
         ("t", "toggle_tax", "Toggle Tax"),
     ]
 
     CSS = """
-    #search-panel { width: 1fr; max-width: 40; padding: 1; }
-    #result-panel { width: 3fr; padding: 1; }
+    Screen {
+        overflow: hidden hidden;
+        height: 100%;
+        max-height: 100%;
+    }
+    #main-container { height: 1fr; overflow: hidden; }
+    #search-panel { width: 1fr; max-width: 40; padding: 1; height: 1fr; overflow: hidden; }
+    #result-panel { width: 3fr; padding: 1; height: 1fr; overflow: hidden; }
     #controls { height: 3; padding: 0 1; }
-    #summary { height: auto; padding: 1; }
-    #warnings { height: auto; color: yellow; padding: 0 1; }
+    #summary { height: 3; padding: 1; }
+    #warnings { max-height: 6; color: yellow; padding: 0 1; overflow-y: auto; }
     DataTable { height: 1fr; }
     """
 
@@ -39,20 +45,17 @@ class AnalyserScreen(Screen):
         self.mhct = mhct
         self.markethunt = markethunt
         self._show_after_tax = False
-        self._show_sb = False
         self._result: AnalysisResult | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with Horizontal():
+        with Horizontal(id="main-container"):
             with Vertical(id="search-panel"):
                 yield ChestSearch(id="chest-search")
             with Vertical(id="result-panel"):
                 with Horizontal(id="controls"):
                     yield Label("After Tax: ")
                     yield Switch(value=False, id="tax-switch")
-                    yield Label("  Show SB: ")
-                    yield Switch(value=False, id="sb-switch")
                 yield Static("Select a chest to analyse.", id="summary")
                 yield DataTable(id="results-table")
                 yield Static("", id="warnings")
@@ -61,7 +64,7 @@ class AnalyserScreen(Screen):
     def on_mount(self) -> None:
         # Setup table columns (sync — no HTTP)
         table = self.query_one("#results-table", DataTable)
-        table.add_columns("Item", "Drop%", "Avg Qty", "Price", "EV")
+        table.add_columns("Item", "Drop%", "Avg Qty", "Gold Price", "Gold EV", "SB Price", "SB EV")
         # Load chest list in background thread (HTTP call)
         self._load_chests()
 
@@ -105,8 +108,6 @@ class AnalyserScreen(Screen):
     def on_switch_changed(self, event: Switch.Changed) -> None:
         if event.switch.id == "tax-switch":
             self._show_after_tax = event.value
-        elif event.switch.id == "sb-switch":
-            self._show_sb = event.value
         self._refresh_table()
 
     def action_toggle_tax(self) -> None:
@@ -122,36 +123,45 @@ class AnalyserScreen(Screen):
         table.clear()
 
         for item in result.items:
-            if self._show_sb:
-                price_str = f"{item.sb_price:.2f} SB" if item.sb_price else "---"
-                ev_str = f"{item.ev_sb:.4f} SB" if not item.unmapped else "---"
+            if item.non_tradeable:
+                gold_price_str = "N/T"
+                gold_ev_str = "---"
+                sb_price_str = "N/T"
+                sb_ev_str = "---"
+            elif item.unmapped:
+                gold_price_str = "UNMAPPED"
+                gold_ev_str = "---"
+                sb_price_str = "---"
+                sb_ev_str = "---"
             else:
-                price_str = f"{item.gold_price:,}" if item.gold_price else "UNMAPPED"
-                ev_str = f"{item.ev_gold:,.0f}" if not item.unmapped else "---"
+                gold_price_str = f"{item.gold_price:,}" if item.gold_price else "N/A"
+                gold_ev_str = f"{item.ev_gold:,.0f}"
+                sb_price_str = f"{item.sb_price:.2f}" if item.sb_price else "---"
+                sb_ev_str = f"{item.ev_sb:.4f}"
 
             table.add_row(
                 item.item_name[:35],
                 f"{item.drop_chance * 100:.1f}%",
                 f"{item.avg_quantity:.1f}",
-                price_str,
-                ev_str,
+                gold_price_str,
+                gold_ev_str,
+                sb_price_str,
+                sb_ev_str,
             )
 
         # Summary
-        if self._show_sb:
-            total = result.total_ev_sb_after_tax if self._show_after_tax else result.total_ev_sb
-            unit = "SB"
-            total_str = f"{total:,.2f}"
+        if self._show_after_tax:
+            gold_total = result.total_ev_gold_after_tax
+            sb_total = result.total_ev_sb_after_tax
         else:
-            total = result.total_ev_gold_after_tax if self._show_after_tax else result.total_ev_gold
-            unit = "Gold"
-            total_str = f"{total:,.0f}"
+            gold_total = result.total_ev_gold
+            sb_total = result.total_ev_sb
 
         tax_label = " (after 10% tax)" if self._show_after_tax else ""
         summary = self.query_one("#summary", Static)
         summary.update(
             f"Chest: {result.chest_name}  |  "
-            f"Total EV: {total_str} {unit}{tax_label}  |  "
+            f"EV: {gold_total:,.0f} Gold / {sb_total:,.2f} SB{tax_label}  |  "
             f"SB Rate: {result.sb_rate:,.0f} gold/SB"
         )
 

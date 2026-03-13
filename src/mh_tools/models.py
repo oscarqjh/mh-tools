@@ -66,6 +66,7 @@ class ItemEV(BaseModel):
     ev_gold: float
     ev_sb: float
     unmapped: bool = False
+    non_tradeable: bool = False
     price_stale: bool = False
 
 

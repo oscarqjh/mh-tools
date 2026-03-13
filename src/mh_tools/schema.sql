@@ -25,3 +25,7 @@ CREATE TABLE IF NOT EXISTS mappings (
     mhct_name TEXT PRIMARY KEY,
     markethunt_name TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS non_tradeables (
+    item_name TEXT PRIMARY KEY
+);

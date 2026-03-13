@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 MARKETPLACE_TAX = 0.10
 
+# Gold is the base currency — 1 Gold = 1 Gold value
+GOLD_ITEM_NAME = "Gold"
+
 
 class MapValueAnalyser(BaseTool):
     """Calculates the expected gold/SB value of opening a treasure chest."""
@@ -53,6 +56,37 @@ class MapValueAnalyser(BaseTool):
         total_ev_sb = 0.0
 
         for drop in drops:
+            # Gold is base currency: 1 Gold = 1 Gold
+            if drop.item_name == GOLD_ITEM_NAME:
+                ev_gold = drop.drop_chance * drop.avg_quantity
+                ev_sb = ev_gold / sb_rate if sb_rate > 0 else 0.0
+                items.append(ItemEV(
+                    item_name=drop.item_name,
+                    drop_chance=drop.drop_chance,
+                    avg_quantity=drop.avg_quantity,
+                    gold_price=1,
+                    sb_price=1.0 / sb_rate if sb_rate > 0 else 0.0,
+                    ev_gold=ev_gold,
+                    ev_sb=ev_sb,
+                ))
+                total_ev_gold += ev_gold
+                total_ev_sb += ev_sb
+                continue
+
+            # Non-tradeable items: skip without warning
+            if self.db.is_non_tradeable(drop.item_name):
+                items.append(ItemEV(
+                    item_name=drop.item_name,
+                    drop_chance=drop.drop_chance,
+                    avg_quantity=drop.avg_quantity,
+                    gold_price=None,
+                    sb_price=None,
+                    ev_gold=0.0,
+                    ev_sb=0.0,
+                    non_tradeable=True,
+                ))
+                continue
+
             price = self._get_price(drop.item_name)
 
             if price is None or price.gold_price is None:
@@ -67,7 +101,7 @@ class MapValueAnalyser(BaseTool):
                     ev_sb=0.0,
                     unmapped=True,
                 ))
-                warnings.append(f"No price for '{drop.item_name}' — skipped in EV calculation")
+                warnings.append(f"No price for '{drop.item_name}' -- skipped in EV calculation")
                 continue
 
             ev_gold = drop.drop_chance * drop.avg_quantity * price.gold_price

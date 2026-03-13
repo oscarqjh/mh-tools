@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from textual.app import App
 
 from mh_tools.database import Database
@@ -14,22 +16,24 @@ class MHToolsApp(App):
     """MouseHunt Tools terminal UI."""
 
     TITLE = "MH Tools"
-    CSS = """
-    Screen { layout: horizontal; }
-    """
+    ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
-        ("q", "quit", "Quit"),
+        ("ctrl+c", "quit", "Quit"),
     ]
 
     def __init__(self, db_path: str = "./data/mh_tools.db"):
         super().__init__()
+        # Suppress library warnings from printing to stderr (corrupts TUI)
+        logging.getLogger("mh_tools").setLevel(logging.CRITICAL)
         self.db = Database(db_path)
         self.db.initialize()
         self.mhct = MHCTProvider()
         self.markethunt = MarketHuntProvider()
 
     def on_mount(self) -> None:
-        self.push_screen(
-            AnalyserScreen(db=self.db, mhct=self.mhct, markethunt=self.markethunt)
+        self.install_screen(
+            AnalyserScreen(db=self.db, mhct=self.mhct, markethunt=self.markethunt),
+            name="analyser",
         )
+        self.push_screen("analyser")

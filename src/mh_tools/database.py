@@ -17,7 +17,7 @@ class Database:
     def __init__(self, db_path: str = "./data/mh_tools.db"):
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
@@ -159,3 +159,25 @@ class Database:
         """Get all name mappings."""
         rows = self.conn.execute("SELECT mhct_name, markethunt_name FROM mappings").fetchall()
         return [NameMapping(mhct_name=r["mhct_name"], markethunt_name=r["markethunt_name"]) for r in rows]
+
+    # --- Non-tradeables ---
+
+    def add_non_tradeable(self, item_name: str) -> None:
+        """Mark an item as non-tradeable."""
+        self.conn.execute(
+            "INSERT OR IGNORE INTO non_tradeables (item_name) VALUES (?)",
+            (item_name,),
+        )
+        self.conn.commit()
+
+    def is_non_tradeable(self, item_name: str) -> bool:
+        """Check if an item is marked non-tradeable."""
+        row = self.conn.execute(
+            "SELECT 1 FROM non_tradeables WHERE item_name = ?", (item_name,)
+        ).fetchone()
+        return row is not None
+
+    def get_all_non_tradeables(self) -> list[str]:
+        """Get all non-tradeable item names."""
+        rows = self.conn.execute("SELECT item_name FROM non_tradeables ORDER BY item_name").fetchall()
+        return [r["item_name"] for r in rows]

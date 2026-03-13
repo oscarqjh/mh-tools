@@ -82,7 +82,7 @@ class MarketHuntProvider:
     def _flatten_item(entry: dict) -> dict:
         """Flatten MarketHunt's nested response into a flat dict."""
         info = entry.get("item_info", {})
-        market = entry.get("latest_market_data", {})
+        market = entry.get("latest_market_data") or {}
         return {
             "item_id": info.get("item_id"),
             "name": info.get("name"),

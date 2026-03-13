@@ -2,16 +2,33 @@
 
 from __future__ import annotations
 
+import ssl
+
 import httpx
 
 MHCT_BASE = "https://www.mhct.win"
+
+
+def _make_tls12_context() -> ssl.SSLContext:
+    """Create an SSL context that caps at TLS 1.2.
+
+    Cloudflare's TLS 1.3 implementation on mhct.win triggers an
+    INVALID_SESSION_ID bug in certain OpenSSL builds (notably the
+    versions bundled with Git-for-Windows and Anaconda on Windows).
+    Forcing TLS 1.2 works around the issue.
+    """
+    ctx = ssl.create_default_context()
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    return ctx
 
 
 class MHCTProvider:
     """Client for MHCT's searchByItem.php endpoint."""
 
     def __init__(self, client: httpx.Client | None = None):
-        self.client = client or httpx.Client(timeout=30)
+        self.client = client or httpx.Client(
+            timeout=30, verify=_make_tls12_context()
+        )
 
     def list_convertibles(self) -> list[dict]:
         """Fetch all convertible items from MHCT.

@@ -45,6 +45,13 @@ def build_parser() -> argparse.ArgumentParser:
     # sync-prices
     subparsers.add_parser("sync-prices", help="Fetch all MarketHunt prices into local cache")
 
+    # mark-nt (non-tradeable)
+    nt_parser = subparsers.add_parser("mark-nt", help="Mark an item as non-tradeable")
+    nt_parser.add_argument("item_name", help="Item name to mark as non-tradeable")
+
+    # list-nt
+    subparsers.add_parser("list-nt", help="List all non-tradeable items")
+
     # tui
     subparsers.add_parser("tui", help="Launch interactive terminal UI")
 
@@ -113,6 +120,27 @@ def run_sync_prices(args) -> None:
     print(f"Synced {len(prices)} item prices.")
 
 
+def run_mark_non_tradeable(args) -> None:
+    """Mark an item as non-tradeable."""
+    db = Database(args.db_path)
+    db.initialize()
+    db.add_non_tradeable(args.item_name)
+    print(f"Marked as non-tradeable: '{args.item_name}'")
+
+
+def run_list_non_tradeables(args) -> None:
+    """List all non-tradeable items."""
+    db = Database(args.db_path)
+    db.initialize()
+    items = db.get_all_non_tradeables()
+    if not items:
+        print("No non-tradeable items registered.")
+    else:
+        print(f"Non-tradeable items ({len(items)}):")
+        for name in items:
+            print(f"  - {name}")
+
+
 def run_tui(args) -> None:
     """Launch the Textual TUI."""
     from mh_tools.ui.app import MHToolsApp
@@ -132,9 +160,12 @@ def _print_result(result: AnalysisResult, show_after_tax: bool = False) -> None:
     print(f"  {'-' * 30} {'-' * 7} {'-' * 8} {'-' * 12} {'-' * 12}")
 
     for item in result.items:
-        if item.unmapped:
+        if item.non_tradeable:
+            price_str = "N/T"
+            ev_str = "---"
+        elif item.unmapped:
             price_str = "UNMAPPED"
-            ev_str = "—"
+            ev_str = "---"
         else:
             price_str = f"{item.gold_price:>12,}" if item.gold_price else "N/A"
             ev_str = f"{item.ev_gold:>12,.0f}"
@@ -142,7 +173,7 @@ def _print_result(result: AnalysisResult, show_after_tax: bool = False) -> None:
         name = item.item_name[:30]
         print(f"  {name:<30} {item.drop_chance * 100:>6.1f}% {item.avg_quantity:>8.1f} {price_str:>12} {ev_str:>12}")
 
-    print(f"\n  {'─' * 60}")
+    print(f"\n  {'-' * 60}")
     print(f"  Total EV (Gold):          {result.total_ev_gold:>12,.0f}")
     print(f"  Total EV (SB):            {result.total_ev_sb:>12,.2f}")
 
@@ -153,7 +184,7 @@ def _print_result(result: AnalysisResult, show_after_tax: bool = False) -> None:
     if result.warnings:
         print(f"\n  Warnings:")
         for w in result.warnings:
-            print(f"    ⚠ {w}")
+            print(f"    ! {w}")
 
     print()
 
@@ -173,6 +204,8 @@ def main() -> None:
         "clear-cache": run_clear_cache,
         "add-mapping": run_add_mapping,
         "sync-prices": run_sync_prices,
+        "mark-nt": run_mark_non_tradeable,
+        "list-nt": run_list_non_tradeables,
         "tui": run_tui,
     }
     commands[args.command](args)
