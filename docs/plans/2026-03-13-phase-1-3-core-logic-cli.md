@@ -48,11 +48,10 @@
 
 ```
 mh-project/
-├── data/
-│   └── schema.sql                    # SQLite DDL
 ├── src/
 │   └── mh_tools/
 │       ├── __init__.py               # Package version
+│       ├── schema.sql                # SQLite DDL (package data for importlib.resources)
 │       ├── main.py                   # CLI entry point (argparse)
 │       ├── models.py                 # Pydantic data models
 │       ├── database.py               # SQLite wrapper + CRUD
@@ -428,13 +427,13 @@ git commit -m "feat: add pydantic data models with EV calculation"
 ### Task 3: SQLite Database Layer
 
 **Files:**
-- Create: `data/schema.sql`
+- Create: `src/mh_tools/schema.sql`
 - Create: `src/mh_tools/database.py`
 - Create: `tests/test_database.py`
 
 - [ ] **Step 1: Write schema.sql**
 
-`data/schema.sql`:
+`src/mh_tools/schema.sql`:
 ```sql
 CREATE TABLE IF NOT EXISTS chests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -612,9 +611,8 @@ class Database:
         self.conn.execute("PRAGMA foreign_keys=ON")
 
     def initialize(self) -> None:
-        """Create tables from schema.sql."""
-        schema_path = Path(__file__).resolve().parent.parent.parent / "data" / "schema.sql"
-        schema = schema_path.read_text()
+        """Create tables if they don't already exist."""
+        schema = resources.files("mh_tools").joinpath("schema.sql").read_text()
         self.conn.executescript(schema)
 
     def clear_cache(self) -> None:
@@ -762,7 +760,7 @@ Expected: all PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add data/schema.sql src/mh_tools/database.py tests/test_database.py
+git add src/mh_tools/schema.sql src/mh_tools/database.py tests/test_database.py
 git commit -m "feat: add SQLite database layer with CRUD for chests, drops, prices, mappings"
 ```
 
@@ -936,6 +934,9 @@ class MHCTProvider:
 
         Returns list of dicts with keys:
             item_name, drop_chance, avg_quantity
+
+        Note: MHCT also returns item_gold_value and item_sb_value per drop,
+        but we intentionally fetch prices from MarketHunt instead for fresher data.
         """
         resp = self.client.get(
             f"{MHCT_BASE}/searchByItem.php",
@@ -1066,14 +1067,27 @@ class TestGetItemPrice:
 
 class TestGetSBRate:
     @respx.mock
-    def test_derives_rate(self):
+    def test_derives_rate_from_sb_item(self):
+        respx.get(f"{MH_BASE}/items/search").mock(
+            return_value=httpx.Response(200, json=[SAMPLE_ITEMS[0]])
+        )
+        provider = MarketHuntProvider()
+        rate = provider.get_sb_rate()
+        # rate = price / sb_price for SUPER|brie+
+        # 16155 / 1.0 = 16155.0
+        assert rate == pytest.approx(16155.0, rel=0.01)
+
+    @respx.mock
+    def test_falls_back_to_all_items(self):
+        # search returns no matching item
+        respx.get(f"{MH_BASE}/items/search").mock(
+            return_value=httpx.Response(200, json=[])
+        )
         respx.get(f"{MH_BASE}/items").mock(
             return_value=httpx.Response(200, json=SAMPLE_ITEMS)
         )
         provider = MarketHuntProvider()
         rate = provider.get_sb_rate()
-        # rate = price / sb_price for any item with sb_price > 0
-        # 16155 / 1.0 = 16155.0
         assert rate == pytest.approx(16155.0, rel=0.01)
 ```
 
@@ -1137,8 +1151,13 @@ class MarketHuntProvider:
         resp.raise_for_status()
         data = resp.json()
         info = data["item_info"]
-        # market_data is sorted by date; first entry is most recent
-        latest = data["market_data"][0] if data.get("market_data") else {}
+        # Sort by date descending to ensure we get the most recent entry
+        market_data = sorted(
+            data.get("market_data", []),
+            key=lambda x: x.get("date", ""),
+            reverse=True,
+        )
+        latest = market_data[0] if market_data else {}
         return {
             "item_id": info["item_id"],
             "name": info["name"],
@@ -1149,9 +1168,15 @@ class MarketHuntProvider:
     def get_sb_rate(self) -> float:
         """Derive the current SB/Gold exchange rate.
 
-        Uses the first tradeable item with sb_price > 0 from the items list.
+        Looks up SUPER|brie+ (the canonical SB item) by searching MarketHunt.
         Returns gold per 1 SUPER|brie+.
         """
+        sb_items = self.search_items("SUPER|brie+")
+        for item in sb_items:
+            if item["name"] == "SUPER|brie+" and item["sb_price"] and item["gold_price"]:
+                return item["gold_price"] / item["sb_price"]
+
+        # Fallback: use any item with a valid sb_price
         items = self.get_all_items()
         for item in items:
             if item["sb_price"] and item["sb_price"] > 0 and item["gold_price"]:
@@ -2012,15 +2037,88 @@ git commit -m "feat: add CLI with analyse, clear-cache, and add-mapping commands
 
 ---
 
-### Task 9: Price Cache Population (Bootstrap)
+### Task 9: Price Cache Population (Bootstrap) + CLI Functional Tests
 
-The analyser needs MarketHunt prices to exist in the DB before resolving names. This task adds a `sync-prices` CLI command to bootstrap the price cache.
+The analyser needs MarketHunt prices to exist in the DB before resolving names. This task adds a `sync-prices` CLI command and functional tests for all CLI commands.
 
 **Files:**
 - Modify: `src/mh_tools/main.py`
 - Modify: `tests/test_main.py`
 
-- [ ] **Step 1: Add sync-prices subparser to `build_parser()`**
+- [ ] **Step 1: Write failing tests first (TDD)**
+
+In `tests/test_main.py`, add:
+```python
+class TestSyncPricesParser:
+    def test_sync_prices(self):
+        parser = build_parser()
+        args = parser.parse_args(["sync-prices"])
+        assert args.command == "sync-prices"
+
+
+class TestRunSyncPrices:
+    @patch("mh_tools.main.MarketHuntProvider")
+    @patch("mh_tools.main.Database")
+    def test_syncs_prices(self, MockDB, MockMarkethunt, capsys):
+        from mh_tools.main import run_sync_prices
+
+        mock_db = MockDB.return_value
+        mock_mh = MockMarkethunt.return_value
+        mock_mh.get_all_items.return_value = [
+            {"item_id": 1, "name": "Gold", "gold_price": 1, "sb_price": 0.00006},
+            {"item_id": 2, "name": "Cheese", "gold_price": 100, "sb_price": 0.006},
+        ]
+
+        args = MagicMock()
+        args.db_path = "./data/mh_tools.db"
+        run_sync_prices(args)
+
+        mock_db.bulk_upsert_prices.assert_called_once()
+        prices = mock_db.bulk_upsert_prices.call_args[0][0]
+        assert len(prices) == 2
+        captured = capsys.readouterr()
+        assert "Synced 2 item prices" in captured.out
+
+
+class TestRunClearCache:
+    @patch("mh_tools.main.Database")
+    def test_clears_cache(self, MockDB, capsys):
+        from mh_tools.main import run_clear_cache
+
+        args = MagicMock()
+        args.db_path = "./data/mh_tools.db"
+        run_clear_cache(args)
+
+        MockDB.return_value.clear_cache.assert_called_once()
+        captured = capsys.readouterr()
+        assert "Cache cleared" in captured.out
+
+
+class TestRunAddMapping:
+    @patch("mh_tools.main.Database")
+    def test_adds_mapping(self, MockDB, capsys):
+        from mh_tools.main import run_add_mapping
+
+        args = MagicMock()
+        args.db_path = "./data/mh_tools.db"
+        args.mhct = "SB+"
+        args.markethunt = "SUPER|brie+"
+        run_add_mapping(args)
+
+        MockDB.return_value.add_mapping.assert_called_once_with("SB+", "SUPER|brie+")
+        captured = capsys.readouterr()
+        assert "Mapping added" in captured.out
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+```bash
+uv run pytest tests/test_main.py -v
+```
+
+Expected: FAIL (sync-prices parser and run_sync_prices not yet implemented)
+
+- [ ] **Step 3: Add sync-prices subparser to `build_parser()`**
 
 In `src/mh_tools/main.py`, add to `build_parser()`:
 ```python
@@ -2028,7 +2126,7 @@ In `src/mh_tools/main.py`, add to `build_parser()`:
     subparsers.add_parser("sync-prices", help="Fetch all MarketHunt prices into local cache")
 ```
 
-- [ ] **Step 2: Add `run_sync_prices` function**
+- [ ] **Step 4: Add `run_sync_prices` function**
 
 ```python
 def run_sync_prices(args) -> None:
@@ -2060,7 +2158,7 @@ def run_sync_prices(args) -> None:
     print(f"Synced {len(prices)} item prices.")
 ```
 
-- [ ] **Step 3: Register in the commands dict**
+- [ ] **Step 5: Register in the commands dict**
 
 ```python
     commands = {
@@ -2071,29 +2169,19 @@ def run_sync_prices(args) -> None:
     }
 ```
 
-- [ ] **Step 4: Add test for the parser**
-
-In `tests/test_main.py`:
-```python
-    def test_sync_prices(self):
-        parser = build_parser()
-        args = parser.parse_args(["sync-prices"])
-        assert args.command == "sync-prices"
-```
-
-- [ ] **Step 5: Run tests**
+- [ ] **Step 6: Run tests**
 
 ```bash
-uv run pytest -v
+uv run pytest tests/test_main.py -v
 ```
 
 Expected: all PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/mh_tools/main.py tests/test_main.py
-git commit -m "feat: add sync-prices command to bootstrap MarketHunt price cache"
+git commit -m "feat: add sync-prices command with functional tests for all CLI commands"
 ```
 
 ---
