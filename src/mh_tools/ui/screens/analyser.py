@@ -33,7 +33,6 @@ class AnalyserScreen(Screen):
 
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
-        ("t", "toggle_tax", "Toggle Tax"),
         ("f", "toggle_favorite", "Favorite"),
         ("1", "focus_favorites", "Favorites"),
         ("2", "focus_search", "Search"),
@@ -70,14 +69,9 @@ class AnalyserScreen(Screen):
     #result-panel:focus-within {
         border: round $primary;
     }
-    #tax-status {
-        height: 1;
-        padding: 0 1;
-        color: $text-muted;
-    }
     #summary {
         height: auto;
-        min-height: 3;
+        min-height: 4;
         padding: 1 1;
         background: $surface;
         margin: 0 1 1 1;
@@ -99,7 +93,6 @@ class AnalyserScreen(Screen):
         self.db = db
         self.mhct = mhct
         self.markethunt = markethunt
-        self._show_after_tax = False
         self._result: AnalysisResult | None = None
 
     def compose(self) -> ComposeResult:
@@ -110,10 +103,6 @@ class AnalyserScreen(Screen):
                 yield ChestSearch(id="chest-search")
             with Vertical(id="result-panel") as panel:
                 panel.border_title = "ANALYSIS"
-                yield Static(
-                    Text("[t] tax OFF", style=DIM),
-                    id="tax-status",
-                )
                 yield Static(
                     Text("Select a chest to analyse", style=DIM_ITALIC),
                     id="summary",
@@ -127,7 +116,8 @@ class AnalyserScreen(Screen):
         table.add_columns(
             "Item",
             Text("Drop%", style=DIM),
-            Text("Qty", style=DIM),
+            Text("Avg Qty", style=DIM),
+            Text("Min-Max Qty", style=DIM),
             Text("Gold Price", style=GOLD),
             Text("Gold EV", style=GOLD),
             Text("SB Price", style=SB_BLUE),
@@ -147,6 +137,7 @@ class AnalyserScreen(Screen):
     def _set_chest_items(self, items: list[dict]) -> None:
         search = self.query_one("#chest-search", ChestSearch)
         search.set_items(items)
+        search.set_favorites(set(self.db.get_all_favorites()))
 
     # -- Panel focus actions ---------------------------------------------------
 
@@ -196,17 +187,6 @@ class AnalyserScreen(Screen):
         summary = self.query_one("#summary", Static)
         summary.update(Text(f"Error: {message}", style=ERR))
 
-    # -- Tax toggle (keyboard only, no Switch widget) --------------------------
-
-    def action_toggle_tax(self) -> None:
-        self._show_after_tax = not self._show_after_tax
-        status = self.query_one("#tax-status", Static)
-        if self._show_after_tax:
-            status.update(Text("[t] tax ON", style="#3fb950"))
-        else:
-            status.update(Text("[t] tax OFF", style=DIM))
-        self._refresh_table()
-
     # -- Favorites toggle ------------------------------------------------------
 
     def action_toggle_favorite(self) -> None:
@@ -229,6 +209,7 @@ class AnalyserScreen(Screen):
         else:
             self.db.add_favorite(name)
         fav_panel.refresh_favorites()
+        search.set_favorites(set(self.db.get_all_favorites()))
 
     # -- Table rendering -------------------------------------------------------
 
@@ -240,7 +221,13 @@ class AnalyserScreen(Screen):
         table = self.query_one("#results-table", DataTable)
         table.clear()
 
-        for item in result.items:
+        # Sort: tradeable items first (by EV desc), then non-tradeable/unmapped
+        sorted_items = sorted(
+            result.items,
+            key=lambda i: (i.non_tradeable or i.unmapped, -i.ev_gold),
+        )
+
+        for item in sorted_items:
             if item.non_tradeable:
                 gold_price_cell = Text("N/T", style=DIM_ITALIC)
                 gold_ev_cell = Text("---", style=DIM)
@@ -261,43 +248,50 @@ class AnalyserScreen(Screen):
                     f"{item.sb_price:.2f}" if item.sb_price else "---",
                     style=SB_BLUE if item.sb_price else DIM,
                 )
-                sb_ev_cell = Text(f"{item.ev_sb:.4f}", style=SB_BLUE)
+                sb_ev_cell = Text(f"{item.ev_sb:.2f}", style=SB_BLUE)
 
             name_style = DIM_ITALIC if item.non_tradeable else (ERR if item.unmapped else NORMAL)
+
+            # Format min-max quantity range
+            if item.min_quantity and item.max_quantity:
+                min_max_cell = Text(f"{item.min_quantity}-{item.max_quantity}", style=NORMAL)
+            elif item.max_quantity:
+                min_max_cell = Text(f"0-{item.max_quantity}", style=NORMAL)
+            else:
+                min_max_cell = Text("---", style=DIM)
 
             table.add_row(
                 Text(item.item_name[:30], style=name_style),
                 Text(f"{item.drop_chance * 100:.1f}%", style=NORMAL),
-                Text(f"{item.avg_quantity:.1f}", style=NORMAL),
+                Text(f"{item.drop_chance * item.avg_quantity:,.2f}", style=NORMAL),
+                min_max_cell,
                 gold_price_cell,
                 gold_ev_cell,
                 sb_price_cell,
                 sb_ev_cell,
             )
 
-        # Summary with semantic colours
-        if self._show_after_tax:
-            gold_total = result.total_ev_gold_after_tax
-            sb_total = result.total_ev_sb_after_tax
-        else:
-            gold_total = result.total_ev_gold
-            sb_total = result.total_ev_sb
-
+        # Summary — show both pre-tax and after-tax
         summary_text = Text()
         summary_text.append(result.chest_name.upper(), style="bold #e3b341")
         summary_text.append("\n")
-        summary_text.append("EV  ", style="#c9d1d9")
-        summary_text.append(f"{gold_total:,.0f} ", style=GOLD)
+        summary_text.append("EV      ", style="#c9d1d9")
+        summary_text.append(f"{result.total_ev_gold:,.0f} ", style=GOLD)
         summary_text.append("Gold", style="#c9d1d9")
         summary_text.append("  |  ", style=DIM)
-        summary_text.append(f"{sb_total:,.2f} ", style=SB_BLUE)
+        summary_text.append(f"{result.total_ev_sb:,.2f} ", style=SB_BLUE)
         summary_text.append("SB", style="#c9d1d9")
+        summary_text.append("\n")
+        summary_text.append("-10%    ", style=DIM)
+        summary_text.append(f"{result.total_ev_gold_after_tax:,.0f} ", style=GOLD)
+        summary_text.append("Gold", style=DIM)
         summary_text.append("  |  ", style=DIM)
-        summary_text.append("Rate ", style="#c9d1d9")
-        summary_text.append(f"{result.sb_rate:,.0f}", style="#c9d1d9")
+        summary_text.append(f"{result.total_ev_sb_after_tax:,.2f} ", style=SB_BLUE)
+        summary_text.append("SB", style=DIM)
+        summary_text.append("  |  ", style=DIM)
+        summary_text.append("Rate ", style=DIM)
+        summary_text.append(f"{result.sb_rate:,.0f}", style=DIM)
         summary_text.append(" gold/SB", style=DIM)
-        if self._show_after_tax:
-            summary_text.append("  (after 10% tax)", style=DIM_ITALIC)
 
         summary = self.query_one("#summary", Static)
         summary.update(summary_text)

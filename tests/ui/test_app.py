@@ -33,6 +33,6 @@ class TestApp:
                 # Verify key widgets exist on the screen
                 screen.query_one("#results-table", DataTable)
                 screen.query_one("#chest-search", ChestSearch)
-                screen.query_one("#tax-status", Static)
+                screen.query_one("#summary", Static)
 
         asyncio.get_event_loop().run_until_complete(run_test())

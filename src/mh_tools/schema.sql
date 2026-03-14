@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS drops (
     item_name TEXT NOT NULL,
     drop_chance REAL NOT NULL,
     avg_quantity REAL NOT NULL DEFAULT 1.0,
+    min_quantity INTEGER NOT NULL DEFAULT 0,
+    max_quantity INTEGER NOT NULL DEFAULT 0,
     UNIQUE(chest_id, item_name)
 );
 

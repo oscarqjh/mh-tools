@@ -22,7 +22,9 @@ class Drop(BaseModel):
     chest_id: int
     item_name: str
     drop_chance: float  # times_with_any / single_opens (0.0 to 1.0)
-    avg_quantity: float  # total_items / times_with_any (avg when present)
+    avg_quantity: float  # total_quantity_when_any / times_with_any
+    min_quantity: int = 0  # min_item_quantity per slot
+    max_quantity: int = 0  # max_item_quantity per slot
 
     @computed_field
     @property
@@ -61,6 +63,8 @@ class ItemEV(BaseModel):
     item_name: str
     drop_chance: float
     avg_quantity: float
+    min_quantity: int = 0
+    max_quantity: int = 0
     gold_price: Optional[int] = None
     sb_price: Optional[float] = None
     ev_gold: float

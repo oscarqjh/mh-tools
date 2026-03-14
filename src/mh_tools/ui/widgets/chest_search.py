@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import textwrap
+
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.events import Key
 from textual.message import Message
+from rich.text import Text
+
 from textual.widgets import Input, OptionList
 from textual.widgets.option_list import Option
 
@@ -53,12 +57,13 @@ class ChestSearch(Vertical):
     ChestSearch #chest-input {
         height: 3;
         dock: top;
-        border: tall $panel;
+        border: heavy $panel;
         background: $surface;
+        padding: 0 1;
         margin: 0 0 1 0;
     }
     ChestSearch #chest-input:focus {
-        border: tall $primary;
+        border: heavy $primary;
     }
     ChestSearch #chest-suggestions {
         height: 1fr;
@@ -69,6 +74,7 @@ class ChestSearch(Vertical):
     ChestSearch #chest-suggestions > .option-list--option-highlighted {
         background: $primary 20%;
         color: $primary;
+        text-style: bold;
     }
     """
 
@@ -76,7 +82,8 @@ class ChestSearch(Vertical):
         super().__init__(**kwargs)
         self._items = items or []
         self._filtered: list[dict] = []
-        self.border_title = "CHEST SEARCH [2]"
+        self._favorites: set[str] = set()
+        self.border_title = "CHEST SEARCH"
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="type to search...", id="chest-input")
@@ -87,6 +94,20 @@ class ChestSearch(Vertical):
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self._update_suggestions(event.value)
+
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        """Update arrow indicator on highlighted option."""
+        option_list = self.query_one("#chest-suggestions", OptionList)
+        for i in range(option_list.option_count):
+            opt = option_list.get_option_at_index(i)
+            plain = opt.prompt.plain if isinstance(opt.prompt, Text) else str(opt.prompt)
+            # Strip the 2-char prefix (either "> " or "  ")
+            text = plain[2:] if len(plain) > 2 else plain
+            prefix = "> " if i == event.option_index else "  "
+            # Preserve gold color for favorites
+            is_fav = self._filtered[i]["name"] in self._favorites if i < len(self._filtered) else False
+            new_prompt = Text(prefix + text, style="#e3b341" if is_fav else "")
+            option_list.replace_option_prompt_at_index(i, new_prompt)
 
     def on_key(self, event: Key) -> None:
         option_list = self.query_one("#chest-suggestions", OptionList)
@@ -131,9 +152,27 @@ class ChestSearch(Vertical):
         input_widget = self.query_one("#chest-input", Input)
         self._update_suggestions(input_widget.value)
 
+    def set_favorites(self, favorites: set[str]) -> None:
+        """Update the favorites set and refresh display."""
+        self._favorites = favorites
+        input_widget = self.query_one("#chest-input", Input)
+        self._update_suggestions(input_widget.value)
+
     def _update_suggestions(self, query: str) -> None:
         option_list = self.query_one("#chest-suggestions", OptionList)
         option_list.clear_options()
         self._filtered = filter_suggestions(self._items, query)[:20]
+        indent = "  "
+        line_width = 31
         for item in self._filtered:
-            option_list.add_option(Option(f"  {item['name']}"))
+            name = item["name"]
+            wrapped = textwrap.fill(
+                name, width=line_width,
+                initial_indent=indent,
+                subsequent_indent=indent,
+            )
+            if name in self._favorites:
+                prompt = Text(wrapped, style="#e3b341")
+            else:
+                prompt = Text(wrapped)
+            option_list.add_option(Option(prompt))

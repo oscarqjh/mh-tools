@@ -19,6 +19,8 @@ MARKETPLACE_TAX = 0.10
 
 # Gold is the base currency — 1 Gold = 1 Gold value
 GOLD_ITEM_NAME = "Gold"
+# Magic Essence is valued at 1 SB per unit
+MAGIC_ESSENCE_ITEM_NAME = "Magic Essence"
 
 
 class MapValueAnalyser(BaseTool):
@@ -42,6 +44,10 @@ class MapValueAnalyser(BaseTool):
 
     def run(self, *, chest_name: str) -> AnalysisResult:
         """Run the analysis for a given chest name."""
+        # 0. Auto-sync prices if DB is empty
+        if not self.db.has_prices():
+            self._sync_prices()
+
         # 1. Resolve chest -> get drops
         chest = self._resolve_chest(chest_name)
         drops = self.db.get_drops_for_chest(chest.id)
@@ -64,8 +70,29 @@ class MapValueAnalyser(BaseTool):
                     item_name=drop.item_name,
                     drop_chance=drop.drop_chance,
                     avg_quantity=drop.avg_quantity,
+                    min_quantity=drop.min_quantity,
+                    max_quantity=drop.max_quantity,
                     gold_price=1,
                     sb_price=1.0 / sb_rate if sb_rate > 0 else 0.0,
+                    ev_gold=ev_gold,
+                    ev_sb=ev_sb,
+                ))
+                total_ev_gold += ev_gold
+                total_ev_sb += ev_sb
+                continue
+
+            # Magic Essence: 1 unit = 1 SB
+            if drop.item_name == MAGIC_ESSENCE_ITEM_NAME:
+                ev_sb = drop.drop_chance * drop.avg_quantity
+                ev_gold = ev_sb * sb_rate if sb_rate > 0 else 0.0
+                items.append(ItemEV(
+                    item_name=drop.item_name,
+                    drop_chance=drop.drop_chance,
+                    avg_quantity=drop.avg_quantity,
+                    min_quantity=drop.min_quantity,
+                    max_quantity=drop.max_quantity,
+                    gold_price=int(sb_rate) if sb_rate > 0 else None,
+                    sb_price=1.0,
                     ev_gold=ev_gold,
                     ev_sb=ev_sb,
                 ))
@@ -79,6 +106,8 @@ class MapValueAnalyser(BaseTool):
                     item_name=drop.item_name,
                     drop_chance=drop.drop_chance,
                     avg_quantity=drop.avg_quantity,
+                    min_quantity=drop.min_quantity,
+                    max_quantity=drop.max_quantity,
                     gold_price=None,
                     sb_price=None,
                     ev_gold=0.0,
@@ -95,6 +124,8 @@ class MapValueAnalyser(BaseTool):
                     item_name=drop.item_name,
                     drop_chance=drop.drop_chance,
                     avg_quantity=drop.avg_quantity,
+                    min_quantity=drop.min_quantity,
+                    max_quantity=drop.max_quantity,
                     gold_price=None,
                     sb_price=None,
                     ev_gold=0.0,
@@ -115,6 +146,8 @@ class MapValueAnalyser(BaseTool):
                 item_name=drop.item_name,
                 drop_chance=drop.drop_chance,
                 avg_quantity=drop.avg_quantity,
+                min_quantity=drop.min_quantity,
+                max_quantity=drop.max_quantity,
                 gold_price=price.gold_price,
                 sb_price=price.sb_price,
                 ev_gold=ev_gold,
@@ -160,6 +193,8 @@ class MapValueAnalyser(BaseTool):
                 item_name=d["item_name"],
                 drop_chance=d["drop_chance"],
                 avg_quantity=d["avg_quantity"],
+                min_quantity=d.get("min_quantity", 0),
+                max_quantity=d.get("max_quantity", 0),
             )
             for d in raw_drops
         ]
@@ -191,3 +226,25 @@ class MapValueAnalyser(BaseTool):
                 logger.warning("Failed to refresh price for '%s', using stale data", mhct_item_name)
 
         return price
+
+    def _sync_prices(self) -> None:
+        """Bulk-fetch all MarketHunt prices into the DB."""
+        logger.info("Prices table empty — syncing from MarketHunt...")
+        try:
+            items = self.markethunt.get_all_items()
+            now = datetime.now(timezone.utc)
+            prices = [
+                Price(
+                    item_name=item["name"],
+                    markethunt_id=item["item_id"],
+                    gold_price=item["gold_price"],
+                    sb_price=item["sb_price"],
+                    last_updated=now,
+                )
+                for item in items
+                if item.get("name")
+            ]
+            self.db.bulk_upsert_prices(prices)
+            logger.info("Synced %d item prices.", len(prices))
+        except Exception:
+            logger.warning("Failed to auto-sync prices from MarketHunt")

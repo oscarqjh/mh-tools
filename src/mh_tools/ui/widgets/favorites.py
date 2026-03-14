@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import textwrap
+
+from rich.text import Text
+
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.events import Key
@@ -47,6 +51,7 @@ class FavoritesList(Vertical):
     FavoritesList #favorites-list > .option-list--option-highlighted {
         background: $primary 20%;
         color: $primary;
+        text-style: bold;
     }
     FavoritesList #favorites-empty {
         height: auto;
@@ -58,7 +63,7 @@ class FavoritesList(Vertical):
     def __init__(self, db: Database, **kwargs):
         super().__init__(**kwargs)
         self.db = db
-        self.border_title = "FAVORITES [1]"
+        self.border_title = "FAVORITES"
         self._names: list[str] = []
 
     def compose(self) -> ComposeResult:
@@ -83,6 +88,16 @@ class FavoritesList(Vertical):
         if idx is not None and 0 <= idx < len(self._names):
             return self._names[idx]
         return None
+
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        """Update arrow indicator on highlighted option."""
+        option_list = self.query_one("#favorites-list", OptionList)
+        for i in range(option_list.option_count):
+            opt = option_list.get_option_at_index(i)
+            plain = opt.prompt.plain if isinstance(opt.prompt, Text) else str(opt.prompt)
+            text = plain[2:] if len(plain) > 2 else plain
+            prefix = "> " if i == event.option_index else "  "
+            option_list.replace_option_prompt_at_index(i, prefix + text)
 
     def on_key(self, event: Key) -> None:
         option_list = self.query_one("#favorites-list", OptionList)
@@ -112,5 +127,12 @@ class FavoritesList(Vertical):
         else:
             option_list.display = True
             empty_label.display = False
+            indent = "  "
+            line_width = 31
             for name in self._names:
-                option_list.add_option(Option(f"  {name}"))
+                wrapped = textwrap.fill(
+                    name, width=line_width,
+                    initial_indent=indent,
+                    subsequent_indent=indent,
+                )
+                option_list.add_option(Option(wrapped))

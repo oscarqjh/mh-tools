@@ -63,16 +63,16 @@ class Database:
         """Replace all drops for a chest."""
         self.conn.execute("DELETE FROM drops WHERE chest_id = ?", (chest_id,))
         self.conn.executemany(
-            "INSERT INTO drops (chest_id, item_name, drop_chance, avg_quantity) "
-            "VALUES (?, ?, ?, ?)",
-            [(d.chest_id, d.item_name, d.drop_chance, d.avg_quantity) for d in drops],
+            "INSERT INTO drops (chest_id, item_name, drop_chance, avg_quantity, min_quantity, max_quantity) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [(d.chest_id, d.item_name, d.drop_chance, d.avg_quantity, d.min_quantity, d.max_quantity) for d in drops],
         )
         self.conn.commit()
 
     def get_drops_for_chest(self, chest_id: int) -> list[Drop]:
         """Get all drops for a chest."""
         rows = self.conn.execute(
-            "SELECT chest_id, item_name, drop_chance, avg_quantity "
+            "SELECT chest_id, item_name, drop_chance, avg_quantity, min_quantity, max_quantity "
             "FROM drops WHERE chest_id = ? ORDER BY drop_chance DESC",
             (chest_id,),
         ).fetchall()
@@ -82,11 +82,18 @@ class Database:
                 item_name=row["item_name"],
                 drop_chance=row["drop_chance"],
                 avg_quantity=row["avg_quantity"],
+                min_quantity=row["min_quantity"],
+                max_quantity=row["max_quantity"],
             )
             for row in rows
         ]
 
     # --- Prices ---
+
+    def has_prices(self) -> bool:
+        """Check if the prices table has any entries."""
+        row = self.conn.execute("SELECT 1 FROM prices LIMIT 1").fetchone()
+        return row is not None
 
     def upsert_price(self, price: Price) -> None:
         """Insert or update a price entry."""

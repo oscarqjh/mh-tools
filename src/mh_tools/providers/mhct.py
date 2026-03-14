@@ -72,6 +72,8 @@ class MHCTProvider:
                 "item_name": entry["item"],
                 "drop_chance": times_with_any / single_opens,
                 "avg_quantity": total_qty_when_any / times_with_any,
+                "min_quantity": entry.get("min_item_quantity", 0),
+                "max_quantity": entry.get("max_item_quantity", 0),
             })
         return drops
 
