@@ -51,7 +51,6 @@ class TestAnalyserScreen:
         screen = AnalyserScreen(db=db, mhct=mhct, markethunt=markethunt)
         assert screen._result is None
         assert screen._show_after_tax is False
-        assert screen._show_sb is False
 
     def test_refresh_table_populates_rows(self, mock_deps, sample_result):
         """Test that _refresh_table fills the DataTable correctly."""

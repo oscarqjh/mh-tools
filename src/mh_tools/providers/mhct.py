@@ -63,7 +63,7 @@ class MHCTProvider:
         for entry in raw:
             single_opens = entry.get("single_opens", 0)
             times_with_any = entry.get("times_with_any", 0)
-            total_items = entry.get("total_items", 0)
+            total_qty_when_any = entry.get("total_quantity_when_any", 0)
 
             if single_opens == 0 or times_with_any == 0:
                 continue
@@ -71,7 +71,7 @@ class MHCTProvider:
             drops.append({
                 "item_name": entry["item"],
                 "drop_chance": times_with_any / single_opens,
-                "avg_quantity": total_items / times_with_any,
+                "avg_quantity": total_qty_when_any / times_with_any,
             })
         return drops
 

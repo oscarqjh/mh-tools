@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from mh_tools.ui.app import MHToolsApp
 from mh_tools.ui.screens.analyser import AnalyserScreen
 from mh_tools.ui.widgets.chest_search import ChestSearch
-from textual.widgets import DataTable, Switch
+from textual.widgets import DataTable, Static
 
 
 class TestApp:
@@ -33,7 +33,6 @@ class TestApp:
                 # Verify key widgets exist on the screen
                 screen.query_one("#results-table", DataTable)
                 screen.query_one("#chest-search", ChestSearch)
-                screen.query_one("#tax-switch", Switch)
-                screen.query_one("#sb-switch", Switch)
+                screen.query_one("#tax-status", Static)
 
         asyncio.get_event_loop().run_until_complete(run_test())

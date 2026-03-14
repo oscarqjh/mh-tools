@@ -42,13 +42,33 @@ class ChestSearch(Vertical):
     DEFAULT_CSS = """
     ChestSearch {
         height: 1fr;
+        border: round $panel;
+        border-title-color: $primary;
+        border-title-style: bold;
+        padding: 0 1;
+    }
+    ChestSearch:focus-within {
+        border: round $primary;
     }
     ChestSearch #chest-input {
         height: 3;
         dock: top;
+        border: tall $panel;
+        background: $surface;
+        margin: 0 0 1 0;
+    }
+    ChestSearch #chest-input:focus {
+        border: tall $primary;
     }
     ChestSearch #chest-suggestions {
         height: 1fr;
+        background: $surface;
+        border: none;
+        scrollbar-size: 1 1;
+    }
+    ChestSearch #chest-suggestions > .option-list--option-highlighted {
+        background: $primary 20%;
+        color: $primary;
     }
     """
 
@@ -56,9 +76,10 @@ class ChestSearch(Vertical):
         super().__init__(**kwargs)
         self._items = items or []
         self._filtered: list[dict] = []
+        self.border_title = "CHEST SEARCH [2]"
 
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Search chests... (arrows to browse)", id="chest-input")
+        yield Input(placeholder="type to search...", id="chest-input")
         yield OptionList(id="chest-suggestions")
 
     def on_mount(self) -> None:
@@ -72,20 +93,17 @@ class ChestSearch(Vertical):
         input_widget = self.query_one("#chest-input", Input)
 
         if event.key == "down" and input_widget.has_focus:
-            # Move focus to option list and highlight first item
             option_list.focus()
             if option_list.option_count > 0:
                 option_list.highlighted = 0
             event.prevent_default()
             event.stop()
         elif event.key == "up" and option_list.has_focus:
-            # If at top of list, return focus to input
             if option_list.highlighted is not None and option_list.highlighted <= 0:
                 input_widget.focus()
                 event.prevent_default()
                 event.stop()
         elif event.key == "enter" and option_list.has_focus:
-            # Select the highlighted option
             idx = option_list.highlighted
             if idx is not None and 0 <= idx < len(self._filtered):
                 item = self._filtered[idx]
@@ -99,6 +117,14 @@ class ChestSearch(Vertical):
             item = self._filtered[idx]
             self.post_message(self.ChestSelected(item["id"], item["name"]))
 
+    def get_highlighted_name(self) -> str | None:
+        """Return the name of the currently highlighted chest, or None."""
+        option_list = self.query_one("#chest-suggestions", OptionList)
+        idx = option_list.highlighted
+        if idx is not None and 0 <= idx < len(self._filtered):
+            return self._filtered[idx]["name"]
+        return None
+
     def set_items(self, items: list[dict]) -> None:
         """Update the available items list."""
         self._items = items
@@ -110,4 +136,4 @@ class ChestSearch(Vertical):
         option_list.clear_options()
         self._filtered = filter_suggestions(self._items, query)[:20]
         for item in self._filtered:
-            option_list.add_option(Option(item["name"]))
+            option_list.add_option(Option(f"  {item['name']}"))

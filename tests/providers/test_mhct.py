@@ -41,6 +41,7 @@ class TestGetConvertibleDrops:
                     "total": 5000,
                     "single_opens": 4500,
                     "total_items": 22500000,
+                    "total_quantity_when_any": 22500000,
                     "times_with_any": 4500,
                     "min_item_quantity": 1000,
                     "max_item_quantity": 10000,
@@ -50,6 +51,7 @@ class TestGetConvertibleDrops:
                     "total": 5000,
                     "single_opens": 4500,
                     "total_items": 450,
+                    "total_quantity_when_any": 450,
                     "times_with_any": 450,
                     "min_item_quantity": 1,
                     "max_item_quantity": 1,
@@ -76,7 +78,7 @@ class TestGetConvertibleDrops:
         """If single_opens is 0, skip the entry to avoid division by zero."""
         respx.get(f"{MHCT_BASE}/searchByItem.php").mock(
             return_value=httpx.Response(200, json=[
-                {"item": "Broken", "total": 0, "single_opens": 0, "total_items": 0, "times_with_any": 0, "min_item_quantity": 0, "max_item_quantity": 0},
+                {"item": "Broken", "total": 0, "single_opens": 0, "total_items": 0, "total_quantity_when_any": 0, "times_with_any": 0, "min_item_quantity": 0, "max_item_quantity": 0},
             ])
         )
         provider = MHCTProvider()

@@ -29,3 +29,7 @@ CREATE TABLE IF NOT EXISTS mappings (
 CREATE TABLE IF NOT EXISTS non_tradeables (
     item_name TEXT PRIMARY KEY
 );
+
+CREATE TABLE IF NOT EXISTS favorites (
+    chest_name TEXT PRIMARY KEY
+);

@@ -181,3 +181,30 @@ class Database:
         """Get all non-tradeable item names."""
         rows = self.conn.execute("SELECT item_name FROM non_tradeables ORDER BY item_name").fetchall()
         return [r["item_name"] for r in rows]
+
+    # --- Favorites ---
+
+    def add_favorite(self, chest_name: str) -> None:
+        """Add a chest to favorites."""
+        self.conn.execute(
+            "INSERT OR IGNORE INTO favorites (chest_name) VALUES (?)",
+            (chest_name,),
+        )
+        self.conn.commit()
+
+    def remove_favorite(self, chest_name: str) -> None:
+        """Remove a chest from favorites."""
+        self.conn.execute("DELETE FROM favorites WHERE chest_name = ?", (chest_name,))
+        self.conn.commit()
+
+    def is_favorite(self, chest_name: str) -> bool:
+        """Check if a chest is a favorite."""
+        row = self.conn.execute(
+            "SELECT 1 FROM favorites WHERE chest_name = ?", (chest_name,)
+        ).fetchone()
+        return row is not None
+
+    def get_all_favorites(self) -> list[str]:
+        """Get all favorite chest names."""
+        rows = self.conn.execute("SELECT chest_name FROM favorites ORDER BY chest_name").fetchall()
+        return [r["chest_name"] for r in rows]
