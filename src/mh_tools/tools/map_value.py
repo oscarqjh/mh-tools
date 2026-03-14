@@ -60,6 +60,9 @@ class MapValueAnalyser(BaseTool):
         warnings: list[str] = []
         total_ev_gold = 0.0
         total_ev_sb = 0.0
+        # Track Gold item EV separately — Gold is not sold on the marketplace
+        # so it is exempt from the 10% marketplace tax.
+        gold_item_ev_gold = 0.0
 
         for drop in drops:
             # Gold is base currency: 1 Gold = 1 Gold
@@ -79,6 +82,7 @@ class MapValueAnalyser(BaseTool):
                 ))
                 total_ev_gold += ev_gold
                 total_ev_sb += ev_sb
+                gold_item_ev_gold += ev_gold
                 continue
 
             # Magic Essence: 1 unit = 1 SB
@@ -162,8 +166,8 @@ class MapValueAnalyser(BaseTool):
             items=items,
             total_ev_gold=total_ev_gold,
             total_ev_sb=total_ev_sb,
-            total_ev_gold_after_tax=total_ev_gold * (1 - MARKETPLACE_TAX),
-            total_ev_sb_after_tax=total_ev_sb * (1 - MARKETPLACE_TAX),
+            total_ev_gold_after_tax=gold_item_ev_gold + (total_ev_gold - gold_item_ev_gold) * (1 - MARKETPLACE_TAX),
+            total_ev_sb_after_tax=gold_item_ev_gold / sb_rate + (total_ev_sb - gold_item_ev_gold / sb_rate) * (1 - MARKETPLACE_TAX) if sb_rate > 0 else 0.0,
             sb_rate=sb_rate,
             warnings=warnings,
         )
