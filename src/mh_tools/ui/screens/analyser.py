@@ -34,6 +34,7 @@ class AnalyserScreen(Screen):
     BINDINGS = [
         ("ctrl+c", "quit", "Quit"),
         ("f", "toggle_favorite", "Favorite"),
+        ("s", "sync_prices", "Sync Prices"),
         ("1", "focus_favorites", "Favorites"),
         ("2", "focus_search", "Search"),
         ("3", "focus_table", "Table"),
@@ -210,6 +211,50 @@ class AnalyserScreen(Screen):
             self.db.add_favorite(name)
         fav_panel.refresh_favorites()
         search.set_favorites(set(self.db.get_all_favorites()))
+
+    # -- Sync prices -----------------------------------------------------------
+
+    def action_sync_prices(self) -> None:
+        """Sync all prices from MarketHunt."""
+        summary = self.query_one("#summary", Static)
+        summary.update(Text("Syncing prices from MarketHunt...", style=DIM_ITALIC))
+        self._run_sync_prices()
+
+    @work(thread=True)
+    def _run_sync_prices(self) -> None:
+        """Run price sync in a worker thread."""
+        from datetime import datetime, timezone
+
+        from mh_tools.models import Price
+
+        try:
+            items = self.markethunt.get_all_items()
+            now = datetime.now(timezone.utc)
+            prices = [
+                Price(
+                    item_name=item["name"],
+                    markethunt_id=item["item_id"],
+                    gold_price=item["gold_price"],
+                    sb_price=item["sb_price"],
+                    last_updated=now,
+                )
+                for item in items
+                if item.get("name")
+            ]
+            self.db.bulk_upsert_prices(prices)
+            self.app.call_from_thread(self._on_sync_complete, len(prices))
+        except Exception as e:
+            self.app.call_from_thread(self._on_sync_error, str(e))
+
+    def _on_sync_complete(self, count: int) -> None:
+        summary = self.query_one("#summary", Static)
+        summary.update(Text(f"Synced {count:,} item prices", style="#3fb950 bold"))
+        if self._result:
+            self._analyse_chest(self._result.chest_name)
+
+    def _on_sync_error(self, error: str) -> None:
+        summary = self.query_one("#summary", Static)
+        summary.update(Text(f"Sync failed: {error}", style=ERR))
 
     # -- Table rendering -------------------------------------------------------
 
