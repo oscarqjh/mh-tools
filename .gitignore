@@ -12,3 +12,6 @@ data/*.db-wal
 
 # Worktrees
 .worktrees/
+
+.superpowers/
+docs/superpowers/
