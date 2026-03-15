@@ -64,9 +64,17 @@ The game exposes a global `user` JavaScript object with key fields:
 The game also exposes an `hg` global with utility methods:
 
 - `hg.utils.UserInventory.getItems()` - Query inventory
+- `hg.utils.UserInventory.getItemsByClass()` - Query items by classification
 - `hg.utils.TrapControl` - Change trap components
 - `hg.utils.User.getUserData()` - Get user fields
 - `hg.utils.MouseUtil.getMouseNames()` - Get mouse data
+- `hg.utils.Marketplace.getMarketplaceData()` - Get marketplace state
+- `hg.utils.Marketplace.createListing()` - Create buy/sell marketplace listing
+- `hg.utils.PageUtil.setPage()` / `hg.utils.PageUtil.setPageTab()` - Navigate pages
+- `hg.utils.PageUtil.getCurrentPageTab()` / `getCurrentPageSubTab()` - Get current page state
+- `hg.views.MarketplaceView.showItem()` / `showBrowseCategory()` / `showBrowser()` / `showMyListings()` - Marketplace UI
+- `hg.views.MarketplaceView.setOrderQuantity()` / `setOrderPrice()` - Set marketplace order params
+- `app.pages.TravelPage.travel(environmentId)` - Travel to a location
 
 ---
 
@@ -174,6 +182,59 @@ const data = await response.json();
 |---|---|---|
 | `managers/ajax/users/session.php` | Session management | Session tokens |
 
+#### Environment-Specific
+
+| Endpoint | Purpose | Extra Parameters |
+|---|---|---|
+| `managers/ajax/environment/bountiful_beanstalk.php` | Bountiful Beanstalk room/planting actions | Action-specific params |
+
+#### Event-Specific (Seasonal)
+
+These endpoints are active only during their respective seasonal events:
+
+| Endpoint | Purpose | Extra Parameters |
+|---|---|---|
+| `managers/ajax/events/kings_giveaway.php` | King's Giveaway event interactions | Event-specific actions |
+| `managers/ajax/events/winter_hunt_region.php` | Great Winter Hunt (Golem) claim/dispatch/upgrade | Action-specific params |
+| `managers/ajax/events/spooky_shuffle.php` | Spooky Shuffle board game event | Board interaction params |
+| `managers/ajax/events/spring_hunt.php` | Spring Egg Hunt event | Egg hunt actions |
+| `managers/ajax/events/birthday_factory.php` | Birthday Factory event (vending machine) | Purchase/snack pack params |
+
+#### Mouse Data
+
+| Endpoint | Purpose | Extra Parameters |
+|---|---|---|
+| `managers/ajax/users/getmousegroup.php` | Get mouse group data (Adversaries page) | Group/tab selection |
+| `managers/ajax/users/getregionmice.php` | Get region-specific mice data | Region identifier |
+
+#### Crafting
+
+| Endpoint | Purpose | Extra Parameters |
+|---|---|---|
+| `managers/ajax/users/crafting.php` | Craft items from recipes | Recipe/item params |
+
+### Endpoint Pattern Summary
+
+The `managers/ajax/` endpoints follow a consistent structure:
+
+| Path Prefix | Purpose |
+|---|---|
+| `managers/ajax/turns/` | Hunt/horn actions |
+| `managers/ajax/users/` | User-specific data and actions (inventory, trap, marketplace, etc.) |
+| `managers/ajax/pages/` | Page rendering data |
+| `managers/ajax/environment/` | Location-specific mechanics |
+| `managers/ajax/events/` | Seasonal event interactions |
+
+### Authentication Classification
+
+| Category | Auth Required? | Details |
+|---|---|---|
+| **`managers/ajax/*` endpoints** | Yes | All require `uh` (unique_hash) session token + standard auth params. These are authenticated POST requests. |
+| **`/api/get/user/` endpoint** | Unclear | Used by mousehunt-improved; may accept just a user ID for public profile data |
+| **`api.mouse.rip` endpoints** | No | Community API; fully public read-only, no auth needed |
+| **`api.markethunt.win` endpoints** | No | Fully public read-only, no auth needed |
+| **`mhct.win` data endpoints** | No | Fully public read-only, no auth needed |
+
 ### Newer REST-Style API (`/api/`)
 
 There is also a newer API path (likely used by the mobile app):
@@ -213,9 +274,13 @@ Full docs at: [api-docs.mouse.rip](https://api-docs.mouse.rip/)
 | `/hunter/:id` | Public hunter profile |
 | `/hunter/:id/setup` | Hunter's current trap setup |
 | `/hunter/:id/items` | Hunter's items |
+| `/items-tradable` | Tradable items only (simplified: id, type, name, image) |
 | `/minlucks` | Minimum luck values for catching mice |
 | `/wisdom` | Wisdom/sage data |
 | `/effs` | Trap effectiveness data |
+| `/mice-groups` | Mouse group categories |
+| `/mice-regions` | Mouse region categories |
+| `/m400-locations` | M400 locations with mice lists |
 | `/scoreboards` | Leaderboard data |
 | `/titles` | All rank titles |
 | `/relic-hunter` | Current Relic Hunter location |
