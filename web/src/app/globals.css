@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/* Default theme tokens (Dark Parchment) — overridden by JS at runtime */
+:root {
+  --bg-primary: #1a0f0a;
+  --bg-secondary: #2c1810;
+  --bg-tertiary: rgba(0, 0, 0, 0.3);
+  --border: #5c3a1e;
+  --border-subtle: rgba(92, 58, 30, 0.5);
+  --text-primary: #d4c4a0;
+  --text-secondary: #a0845c;
+  --text-muted: #6b5638;
+  --accent: #e3b341;
+  --accent-hover: #f0c45c;
+  --accent-subtle: rgba(196, 148, 58, 0.15);
+  --gold: #e3b341;
+  --sb: #58a6ff;
+  --warning: #f59e0b;
+  --error: #f85149;
+  --font-heading: Georgia, "Times New Roman", serif;
+  --font-body: system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+/* Skeleton pulse animation for loading states */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.skeleton {
+  background-color: var(--bg-tertiary);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
