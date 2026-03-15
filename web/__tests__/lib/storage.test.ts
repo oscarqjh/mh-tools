@@ -54,7 +54,7 @@ describe("StorageService", () => {
     it("isFavorite returns correct boolean", () => {
       storage.addFavorite("Rare Treasure Chest");
       expect(storage.isFavorite("Rare Treasure Chest")).toBe(true);
-      expect(storage.isFavorite("Other Chest")).toBe(false);
+      expect(storage.isFavorite("Other Convertible")).toBe(false);
     });
   });
 

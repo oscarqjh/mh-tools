@@ -35,19 +35,15 @@ export default function TopBar({
     return `${m}:${s.toString().padStart(2, "0")}`;
   }, []);
 
+  const isReady = canRefresh && remaining <= 0;
+
   return (
-    <header
-      className="flex items-center justify-between h-14 px-6 border-b"
-      style={{
-        backgroundColor: "var(--bg-secondary)",
-        borderColor: "var(--border)",
-      }}
-    >
+    <div className="flex items-center justify-between mb-6">
       <h1
-        className="text-lg font-bold"
+        className="text-2xl font-bold"
         style={{
-          color: "var(--text-primary)",
           fontFamily: "var(--font-heading)",
+          color: "var(--text-primary)",
         }}
       >
         {title}
@@ -55,21 +51,29 @@ export default function TopBar({
 
       <button
         onClick={onRefresh}
-        disabled={!canRefresh && remaining > 0}
-        className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!isReady}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         style={{
-          backgroundColor: canRefresh && remaining <= 0
-            ? "var(--accent)"
-            : "var(--bg-tertiary)",
-          color: canRefresh && remaining <= 0
-            ? "var(--bg-primary)"
-            : "var(--text-muted)",
-          borderWidth: 1,
-          borderColor: "var(--border)",
+          background: isReady ? "var(--accent)" : "var(--bg-card)",
+          color: isReady ? "var(--bg-primary)" : "var(--text-muted)",
+          border: isReady ? "none" : "1px solid var(--border)",
         }}
       >
-        {remaining > 0 ? `Refresh (${formatTime(remaining)})` : "Refresh Prices"}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+        {remaining > 0 ? formatTime(remaining) : "Refresh Prices"}
       </button>
-    </header>
+    </div>
   );
 }

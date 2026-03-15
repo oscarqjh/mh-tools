@@ -112,6 +112,54 @@ describe("calculateEV", () => {
     );
   });
 
+  it("includes Discord OTC prices when provided", () => {
+    const drops: Drop[] = [
+      { itemName: "Rift Circuitry", dropChance: 0.5, avgQuantity: 2, minQuantity: 1, maxQuantity: 4 },
+      { itemName: "Rift Mist", dropChance: 0.8, avgQuantity: 3, minQuantity: 1, maxQuantity: 5 },
+    ];
+    const prices = makePriceMap({
+      "Rift Circuitry": { goldPrice: 8200, sbPrice: 0.5125 },
+      "Rift Mist": { goldPrice: 500, sbPrice: 0.03125 },
+    });
+    const otcPrices = new Map([
+      ["Rift Circuitry", 0.6], // Discord price is higher than marketplace
+    ]);
+
+    const result = calculateEV(drops, prices, MOCK_SB_RATE, otcPrices);
+
+    // Rift Circuitry has Discord price
+    const circuitry = result.items.find((i) => i.itemName === "Rift Circuitry")!;
+    expect(circuitry.discordSbPrice).toBe(0.6);
+    expect(circuitry.discordEvSB).toBe(0.5 * 2 * 0.6);
+
+    // Rift Mist has no Discord price
+    const mist = result.items.find((i) => i.itemName === "Rift Mist")!;
+    expect(mist.discordSbPrice).toBeNull();
+    expect(mist.discordEvSB).toBe(0);
+
+    // Discord comparison stats
+    expect(result.discordItemCount).toBe(1);
+    expect(result.discordCoveredEvSB).toBeCloseTo(0.5 * 2 * 0.6);
+    expect(result.marketCoveredEvSB).toBeCloseTo((0.5 * 2 * 8200) / 16000);
+  });
+
+  it("returns zero discord stats when no OTC prices provided", () => {
+    const drops: Drop[] = [
+      { itemName: "Rift Circuitry", dropChance: 0.5, avgQuantity: 2, minQuantity: 1, maxQuantity: 4 },
+    ];
+    const prices = makePriceMap({
+      "Rift Circuitry": { goldPrice: 8200, sbPrice: 0.51 },
+    });
+
+    const result = calculateEV(drops, prices, MOCK_SB_RATE);
+
+    expect(result.discordItemCount).toBe(0);
+    expect(result.discordCoveredEvSB).toBe(0);
+    expect(result.marketCoveredEvSB).toBe(0);
+    expect(result.items[0].discordSbPrice).toBeNull();
+    expect(result.items[0].discordEvSB).toBe(0);
+  });
+
   it("sorts items: tradeable desc by Gold EV, then non-tradeable", () => {
     const drops: Drop[] = [
       { itemName: "Non-trade", dropChance: 0.5, avgQuantity: 1, minQuantity: 1, maxQuantity: 1 },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Sidebar from "@/components/layout/Sidebar";
+import Navbar from "@/components/layout/Navbar";
 import { storage } from "@/lib/services";
 import { applyTheme, themes } from "@/lib/themes";
 
@@ -10,7 +10,7 @@ export default function ThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [currentTheme, setCurrentTheme] = useState("dark-parchment");
+  const [currentTheme, setCurrentTheme] = useState("arcane-hunt");
 
   useEffect(() => {
     const saved = storage.getTheme();
@@ -28,12 +28,12 @@ export default function ThemeProvider({
   }, [currentTheme]);
 
   return (
-    <div className="flex h-screen overflow-hidden" data-theme={currentTheme}>
-      <Sidebar
+    <div className="min-h-screen scene-bg" data-theme={currentTheme}>
+      <Navbar
         currentTheme={currentTheme}
         onToggleTheme={handleToggleTheme}
       />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="pt-14">{children}</main>
     </div>
   );
 }

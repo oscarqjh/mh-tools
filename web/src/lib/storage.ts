@@ -1,11 +1,11 @@
-import type { UserSettings, ChestAnalyserConfigs } from "@/types";
+import type { UserSettings, AnalyserConfigs } from "@/types";
 
 const STORAGE_KEY = "gnawniaverse";
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 const DEFAULT_SETTINGS: UserSettings = {
-  theme: "dark-parchment",
-  chestAnalyserConfigs: {
+  theme: "arcane-hunt",
+  analyserConfigs: {
     favorites: [],
     lastPriceRefresh: null,
   },
@@ -19,9 +19,9 @@ export class StorageService {
       const parsed = JSON.parse(raw) as { user?: Partial<UserSettings> };
       return {
         theme: parsed.user?.theme ?? DEFAULT_SETTINGS.theme,
-        chestAnalyserConfigs: {
-          ...DEFAULT_SETTINGS.chestAnalyserConfigs,
-          ...parsed.user?.chestAnalyserConfigs,
+        analyserConfigs: {
+          ...DEFAULT_SETTINGS.analyserConfigs,
+          ...parsed.user?.analyserConfigs,
         },
       };
     } catch {
@@ -34,10 +34,10 @@ export class StorageService {
   }
 
   private updateConfigs(
-    updater: (configs: ChestAnalyserConfigs) => ChestAnalyserConfigs,
+    updater: (configs: AnalyserConfigs) => AnalyserConfigs,
   ): void {
     const settings = this.read();
-    settings.chestAnalyserConfigs = updater(settings.chestAnalyserConfigs);
+    settings.analyserConfigs = updater(settings.analyserConfigs);
     this.write(settings);
   }
 
@@ -54,25 +54,25 @@ export class StorageService {
 
   // Favorites
   getFavorites(): string[] {
-    return this.read().chestAnalyserConfigs.favorites;
+    return this.read().analyserConfigs.favorites;
   }
 
-  addFavorite(chestName: string): void {
+  addFavorite(name: string): void {
     this.updateConfigs((configs) => {
-      if (configs.favorites.includes(chestName)) return configs;
-      return { ...configs, favorites: [...configs.favorites, chestName] };
+      if (configs.favorites.includes(name)) return configs;
+      return { ...configs, favorites: [...configs.favorites, name] };
     });
   }
 
-  removeFavorite(chestName: string): void {
+  removeFavorite(name: string): void {
     this.updateConfigs((configs) => ({
       ...configs,
-      favorites: configs.favorites.filter((f) => f !== chestName),
+      favorites: configs.favorites.filter((f) => f !== name),
     }));
   }
 
-  isFavorite(chestName: string): boolean {
-    return this.getFavorites().includes(chestName);
+  isFavorite(name: string): boolean {
+    return this.getFavorites().includes(name);
   }
 
   // Refresh cooldown
@@ -81,7 +81,7 @@ export class StorageService {
   }
 
   getRefreshCooldownRemaining(): number {
-    const last = this.read().chestAnalyserConfigs.lastPriceRefresh;
+    const last = this.read().analyserConfigs.lastPriceRefresh;
     if (!last) return 0;
     const elapsed = Date.now() - new Date(last).getTime();
     return Math.max(0, Math.ceil((REFRESH_COOLDOWN_MS - elapsed) / 1000));

@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { ChestInfo, MarketItem } from "@/types";
+import type { ConvertibleInfo, MarketItem } from "@/types";
 import { MarketHuntService } from "@/lib/services/markethunt-service";
 import { mhctService, marketHuntService, storage } from "@/lib/services";
 
 interface MarketDataState {
   items: MarketItem[];
-  chests: ChestInfo[];
+  convertibles: ConvertibleInfo[];
   sbRate: number;
   priceMap: Map<string, { goldPrice: number | null; sbPrice: number | null }>;
+  /** Tradeable OTC index: item name → item ID */
+  otcTradeableIndex: Map<string, number>;
+  /** Leech OTC index: convertible name → item ID */
+  otcLeechIndex: Map<string, number>;
   loading: boolean;
   error: string | null;
   canRefresh: boolean;
@@ -19,10 +23,16 @@ interface MarketDataState {
 
 export function useMarketData(): MarketDataState {
   const [items, setItems] = useState<MarketItem[]>([]);
-  const [chests, setChests] = useState<ChestInfo[]>([]);
+  const [convertibles, setConvertibles] = useState<ConvertibleInfo[]>([]);
   const [sbRate, setSbRate] = useState(0);
   const [priceMap, setPriceMap] = useState<
     Map<string, { goldPrice: number | null; sbPrice: number | null }>
+  >(new Map());
+  const [otcTradeableIndex, setOtcTradeableIndex] = useState<
+    Map<string, number>
+  >(new Map());
+  const [otcLeechIndex, setOtcLeechIndex] = useState<
+    Map<string, number>
   >(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +50,23 @@ export function useMarketData(): MarketDataState {
     return marketItems;
   }, []);
 
-  const loadChests = useCallback(async (signal?: AbortSignal) => {
-    const chestList = await mhctService.listChests(signal);
-    setChests(chestList);
-    return chestList;
+  const loadConvertibles = useCallback(async (signal?: AbortSignal) => {
+    const convertibleList = await mhctService.listConvertibles(signal);
+    setConvertibles(convertibleList);
+    return convertibleList;
+  }, []);
+
+  const loadOtcIndex = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const index = await marketHuntService.getOtcIndex(signal);
+      const tradeableIndex = MarketHuntService.buildOtcTradeableIndex(index);
+      const leechIndex = MarketHuntService.buildOtcLeechIndex(index);
+      setOtcTradeableIndex(tradeableIndex);
+      setOtcLeechIndex(leechIndex);
+    } catch {
+      // OTC is best-effort — don't fail the whole load
+      console.warn("Failed to load OTC index — Discord prices unavailable");
+    }
   }, []);
 
   const updateCooldown = useCallback(() => {
@@ -64,7 +87,8 @@ export function useMarketData(): MarketDataState {
       try {
         await Promise.all([
           loadPrices(controller.signal),
-          loadChests(controller.signal),
+          loadConvertibles(controller.signal),
+          loadOtcIndex(controller.signal),
         ]);
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -81,14 +105,14 @@ export function useMarketData(): MarketDataState {
     load();
 
     return () => controller.abort();
-  }, [loadPrices, loadChests, updateCooldown]);
+  }, [loadPrices, loadConvertibles, loadOtcIndex, updateCooldown]);
 
   const refresh = useCallback(async () => {
     if (!storage.canRefreshPrices()) return;
     setLoading(true);
     setError(null);
     try {
-      await loadPrices();
+      await Promise.all([loadPrices(), loadOtcIndex()]);
       storage.markPriceRefresh();
       updateCooldown();
     } catch (err) {
@@ -98,13 +122,15 @@ export function useMarketData(): MarketDataState {
     } finally {
       setLoading(false);
     }
-  }, [loadPrices, updateCooldown]);
+  }, [loadPrices, loadOtcIndex, updateCooldown]);
 
   return {
     items,
-    chests,
+    convertibles,
     sbRate,
     priceMap,
+    otcTradeableIndex,
+    otcLeechIndex,
     loading,
     error,
     canRefresh,

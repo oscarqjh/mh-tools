@@ -6,25 +6,41 @@ const MAGIC_ESSENCE_ITEM_NAME = "Magic Essence";
 
 type PriceMap = Map<string, { goldPrice: number | null; sbPrice: number | null }>;
 
-/** Calculate expected value for a list of drops against market prices. */
+/**
+ * Calculate expected value for a list of drops against market prices.
+ * Optionally includes Discord OTC prices for comparison.
+ */
 export function calculateEV(
   drops: Drop[],
   prices: PriceMap,
   sbRate: number,
-): Omit<AnalysisResult, "chestName"> {
+  otcPrices?: Map<string, number>,
+): Omit<AnalysisResult, "convertibleName" | "leechCostSB"> {
   const items: ItemEV[] = [];
   const warnings: string[] = [];
   let totalEvGold = 0;
   let totalEvSB = 0;
   let goldItemEvGold = 0;
 
+  // Discord comparison accumulators
+  let discordCoveredEvSB = 0;
+  let marketCoveredEvSB = 0;
+  let discordItemCount = 0;
+
   for (const drop of drops) {
-    const item = calculateItemEV(drop, prices, sbRate, warnings);
+    const item = calculateItemEV(drop, prices, sbRate, warnings, otcPrices);
     items.push(item);
     totalEvGold += item.evGold;
     totalEvSB += item.evSB;
     if (drop.itemName === GOLD_ITEM_NAME) {
       goldItemEvGold += item.evGold;
+    }
+
+    // Track Discord vs marketplace for items with OTC data
+    if (item.discordSbPrice != null && !item.nonTradeable && !item.unmapped) {
+      discordItemCount++;
+      discordCoveredEvSB += item.discordEvSB;
+      marketCoveredEvSB += item.evSB;
     }
   }
 
@@ -48,6 +64,9 @@ export function calculateEV(
       goldExemptEvSB + (totalEvSB - goldExemptEvSB) * (1 - MARKETPLACE_TAX),
     sbRate,
     warnings,
+    discordCoveredEvSB,
+    marketCoveredEvSB,
+    discordItemCount,
   };
 }
 
@@ -56,6 +75,7 @@ function calculateItemEV(
   prices: PriceMap,
   sbRate: number,
   warnings: string[],
+  otcPrices?: Map<string, number>,
 ): ItemEV {
   const base = {
     itemName: drop.itemName,
@@ -64,6 +84,12 @@ function calculateItemEV(
     minQuantity: drop.minQuantity,
     maxQuantity: drop.maxQuantity,
   };
+
+  const discordSbPrice = otcPrices?.get(drop.itemName) ?? null;
+  const discordEvSB =
+    discordSbPrice != null
+      ? drop.dropChance * drop.avgQuantity * discordSbPrice
+      : 0;
 
   // Gold: 1 Gold = 1 Gold, tax-exempt
   if (drop.itemName === GOLD_ITEM_NAME) {
@@ -76,6 +102,8 @@ function calculateItemEV(
       evSB: sbRate > 0 ? evGold / sbRate : 0,
       unmapped: false,
       nonTradeable: false,
+      discordSbPrice: null,
+      discordEvSB: 0,
     };
   }
 
@@ -91,6 +119,8 @@ function calculateItemEV(
       evSB,
       unmapped: false,
       nonTradeable: false,
+      discordSbPrice: null,
+      discordEvSB: 0,
     };
   }
 
@@ -105,6 +135,8 @@ function calculateItemEV(
       evSB: 0,
       unmapped: false,
       nonTradeable: true,
+      discordSbPrice,
+      discordEvSB,
     };
   }
 
@@ -121,6 +153,8 @@ function calculateItemEV(
       evSB: 0,
       unmapped: true,
       nonTradeable: false,
+      discordSbPrice,
+      discordEvSB,
     };
   }
 
@@ -134,5 +168,7 @@ function calculateItemEV(
     evSB: sbRate > 0 ? evGold / sbRate : 0,
     unmapped: false,
     nonTradeable: false,
+    discordSbPrice,
+    discordEvSB,
   };
 }

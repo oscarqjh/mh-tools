@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "chest-analyser", label: "Chest Analyser", href: "/chest-analyser", icon: "\u{1F4E6}", enabled: true },
+  { id: "convertibles-analyser", label: "Convertibles Analyser", href: "/convertibles-analyser", icon: "\u{1F4E6}", enabled: true },
 ];
 
 interface SidebarProps {

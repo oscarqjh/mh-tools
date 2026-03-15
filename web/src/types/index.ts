@@ -1,5 +1,5 @@
-/** A convertible chest from MHCT */
-export interface ChestInfo {
+/** A convertible item from MHCT */
+export interface ConvertibleInfo {
   id: number;
   name: string;
 }
@@ -23,6 +23,24 @@ export interface MarketItem {
   currentlyTradeable: boolean;
 }
 
+/** OTC listing index entry from /otc/listings */
+export interface OtcIndexEntry {
+  itemId: number;
+  itemName: string;
+  listingType: number;
+  listingTypeDescription: string;
+}
+
+/** Individual OTC listing from /otc/listings/{typeId}/{itemId} */
+export interface OtcListing {
+  itemId: number;
+  sbPrice: number;
+  listingType: number;
+  isSelling: boolean;
+  amount: number | null;
+  timestamp: number;
+}
+
 /** EV calculation result for a single item */
 export interface ItemEV {
   itemName: string;
@@ -36,11 +54,13 @@ export interface ItemEV {
   evSB: number;
   unmapped: boolean;
   nonTradeable: boolean;
+  discordSbPrice: number | null;
+  discordEvSB: number;
 }
 
-/** Full analysis result for a chest */
+/** Full analysis result for a convertible */
 export interface AnalysisResult {
-  chestName: string;
+  convertibleName: string;
   items: ItemEV[];
   totalEvGold: number;
   totalEvSB: number;
@@ -48,15 +68,23 @@ export interface AnalysisResult {
   totalEvSBAfterTax: number;
   sbRate: number;
   warnings: string[];
+  /** Discord EV for items that have OTC prices (SB) */
+  discordCoveredEvSB: number;
+  /** Marketplace EV for those same items (SB), for comparison */
+  marketCoveredEvSB: number;
+  /** Number of tradeable items with Discord OTC prices */
+  discordItemCount: number;
+  /** Discord leech cost for this convertible in SB (null if not tracked) */
+  leechCostSB: number | null;
 }
 
 /** localStorage schema */
 export interface UserSettings {
   theme: string;
-  chestAnalyserConfigs: ChestAnalyserConfigs;
+  analyserConfigs: AnalyserConfigs;
 }
 
-export interface ChestAnalyserConfigs {
+export interface AnalyserConfigs {
   favorites: string[];
   lastPriceRefresh: string | null;
 }

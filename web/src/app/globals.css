@@ -1,45 +1,247 @@
 @import "tailwindcss";
 
-/* Default theme tokens (Dark Parchment) — overridden by JS at runtime */
+/* Default theme tokens (Arcane Hunt) — overridden by JS at runtime */
 :root {
-  --bg-primary: #1a0f0a;
-  --bg-secondary: #2c1810;
-  --bg-tertiary: rgba(0, 0, 0, 0.3);
-  --border: #5c3a1e;
-  --border-subtle: rgba(92, 58, 30, 0.5);
-  --text-primary: #d4c4a0;
-  --text-secondary: #a0845c;
-  --text-muted: #6b5638;
-  --accent: #e3b341;
-  --accent-hover: #f0c45c;
-  --accent-subtle: rgba(196, 148, 58, 0.15);
-  --gold: #e3b341;
-  --sb: #58a6ff;
+  --bg-primary: #0c1521;
+  --bg-secondary: rgba(15, 25, 40, 0.85);
+  --bg-tertiary: rgba(255, 255, 255, 0.04);
+  --bg-card: rgba(20, 32, 52, 0.65);
+  --bg-card-hover: rgba(25, 40, 60, 0.8);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --text-primary: #e2e0dc;
+  --text-secondary: #8b98a8;
+  --text-muted: #4a5568;
+  --accent: #f0b232;
+  --accent-hover: #f5c452;
+  --accent-subtle: rgba(240, 178, 50, 0.12);
+  --gold: #f0b232;
+  --sb: #7c9aff;
   --warning: #f59e0b;
   --error: #f85149;
-  --font-heading: Georgia, "Times New Roman", serif;
-  --font-body: system-ui, -apple-system, sans-serif;
+  --glow-gold: 0 0 20px rgba(240, 178, 50, 0.15);
+  --glow-blue: 0 0 20px rgba(124, 154, 255, 0.15);
+  --discord: #5865f2;
+  --profit: #10b981;
+  --glow-discord: 0 0 16px rgba(88, 101, 242, 0.2);
+  --glow-profit: 0 0 16px rgba(16, 185, 129, 0.2);
+  --font-heading: "Cinzel", "Georgia", serif;
+  --font-body: "Outfit", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Glass card base */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.glass-card-hover {
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.glass-card-hover:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Pill tag (like enka's character pills) */
+.pill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.pill-tag:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.pill-tag.active {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Skeleton pulse animation for loading states */
 @keyframes skeleton-pulse {
   0%,
   100% {
-    opacity: 0.4;
+    opacity: 0.3;
   }
   50% {
-    opacity: 0.7;
+    opacity: 0.6;
   }
 }
-
 .skeleton {
-  background-color: var(--bg-tertiary);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  background: var(--bg-card);
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* Fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Staggered fade-in for children */
+.stagger-in > * {
+  opacity: 0;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+.stagger-in > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-in > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-in > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-in > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-in > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* Glow text */
+.glow-gold {
+  text-shadow: 0 0 12px rgba(240, 178, 50, 0.3);
+}
+.glow-blue {
+  text-shadow: 0 0 12px rgba(124, 154, 255, 0.3);
+}
+.glow-discord {
+  text-shadow: 0 0 12px rgba(88, 101, 242, 0.3);
+}
+.glow-profit {
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Experimental badge */
+.badge-experimental {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--discord);
+  background: color-mix(in srgb, var(--discord) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--discord) 20%, transparent);
+}
+
+/* Delta indicator (profit/loss) */
+.delta-positive {
+  color: var(--profit);
+}
+.delta-negative {
+  color: var(--error);
+}
+.delta-neutral {
+  color: var(--text-muted);
+}
+
+/* Scene background — low-opacity image like enka.network */
+.scene-bg {
+  position: relative;
+  isolation: isolate;
+}
+.scene-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: url("/bg-ronza.jpg") center top / cover no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.scene-bg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, var(--bg-primary) 0%, transparent 30%, transparent 70%, var(--bg-primary) 100%),
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(12, 21, 33, 0.7) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Hero gradient background */
+.hero-gradient {
+  position: relative;
+}
+.hero-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(20, 40, 80, 0.6) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 20%, rgba(240, 178, 50, 0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Page gradient (subtle top glow for inner pages) */
+.page-gradient {
+  position: relative;
+}
+.page-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 30% at 50% 0%, rgba(20, 40, 80, 0.3) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Stat value emphasis */
+.stat-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }

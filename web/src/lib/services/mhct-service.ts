@@ -1,4 +1,4 @@
-import type { ChestInfo, Drop } from "@/types";
+import type { ConvertibleInfo, Drop } from "@/types";
 import { httpGet } from "./http-client";
 
 const MHCT_BASE = "https://www.mhct.win";
@@ -20,8 +20,8 @@ interface MhctDropEntry {
 }
 
 export class MhctService {
-  /** Fetch all convertible chests from MHCT. */
-  async listChests(signal?: AbortSignal): Promise<ChestInfo[]> {
+  /** Fetch all convertibles from MHCT. */
+  async listConvertibles(signal?: AbortSignal): Promise<ConvertibleInfo[]> {
     const raw = await httpGet<MhctConvertibleEntry[]>(
       MHCT_BASE,
       "/searchByItem.php",
@@ -30,7 +30,7 @@ export class MhctService {
     return raw.map((entry) => ({ id: entry.id, name: entry.value }));
   }
 
-  /** Fetch drop statistics for a specific chest. */
+  /** Fetch drop statistics for a specific convertible. */
   async getDrops(mhctId: number, signal?: AbortSignal): Promise<Drop[]> {
     const raw = await httpGet<MhctDropEntry[]>(
       MHCT_BASE,
@@ -52,10 +52,10 @@ export class MhctService {
       }));
   }
 
-  /** Filter a chest list by case-insensitive substring match. Pure function. */
-  static searchChests(chests: ChestInfo[], query: string): ChestInfo[] {
-    if (!query) return chests;
+  /** Filter a convertible list by case-insensitive substring match. Pure function. */
+  static searchConvertibles(convertibles: ConvertibleInfo[], query: string): ConvertibleInfo[] {
+    if (!query) return convertibles;
     const lower = query.toLowerCase();
-    return chests.filter((c) => c.name.toLowerCase().includes(lower));
+    return convertibles.filter((c) => c.name.toLowerCase().includes(lower));
   }
 }

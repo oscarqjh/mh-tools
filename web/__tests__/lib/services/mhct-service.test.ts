@@ -14,14 +14,14 @@ describe("MhctService", () => {
     vi.clearAllMocks();
   });
 
-  describe("listChests", () => {
-    it("fetches all convertible chests and maps response", async () => {
+  describe("listConvertibles", () => {
+    it("fetches all convertibles and maps response", async () => {
       mockHttpGet.mockResolvedValue([
         { id: 100, value: "Rare Treasure Chest" },
         { id: 200, value: "Relic Hunter Treasure Chest" },
       ]);
 
-      const result = await service.listChests();
+      const result = await service.listConvertibles();
 
       expect(mockHttpGet).toHaveBeenCalledWith(
         "https://www.mhct.win",
@@ -106,30 +106,30 @@ describe("MhctService", () => {
     });
   });
 
-  describe("searchChests", () => {
-    it("filters chest list by case-insensitive substring", () => {
-      const chests = [
+  describe("searchConvertibles", () => {
+    it("filters convertible list by case-insensitive substring", () => {
+      const convertibles = [
         { id: 100, name: "Rare Treasure Chest" },
         { id: 200, name: "Relic Hunter Treasure Chest" },
         { id: 300, name: "Arduous Treasure Chest" },
       ];
 
-      const result = MhctService.searchChests(chests, "relic");
+      const result = MhctService.searchConvertibles(convertibles, "relic");
 
       expect(result).toEqual([
         { id: 200, name: "Relic Hunter Treasure Chest" },
       ]);
     });
 
-    it("returns all chests for empty query", () => {
-      const chests = [
+    it("returns all convertibles for empty query", () => {
+      const convertibles = [
         { id: 100, name: "Rare Treasure Chest" },
         { id: 200, name: "Relic Hunter Treasure Chest" },
       ];
 
-      const result = MhctService.searchChests(chests, "");
+      const result = MhctService.searchConvertibles(convertibles, "");
 
-      expect(result).toEqual(chests);
+      expect(result).toEqual(convertibles);
     });
   });
 });
